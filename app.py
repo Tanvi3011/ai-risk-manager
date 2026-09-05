@@ -188,20 +188,27 @@ def _run_full_pipeline():
         ("Building features", lambda: _step_features()),
         ("Applying rules", lambda: _step_rules()),
         ("Training Isolation Forest", lambda: _step_isolation_forest()),
+        ("Building graph", lambda: _step_graph()),
         ("Training LightGBM", lambda: _step_lightgbm()),
         ("Feature importance", lambda: _step_feature_importance()),
-        ("Building graph", lambda: _step_graph()),
         ("Running agents", lambda: _step_agents()),
     ]
 
     progress = st.progress(0, text="Starting pipeline...")
+    errors = []
     for i, (label, fn) in enumerate(steps):
-        progress.progress(i / len(steps), text=f"{label}...")
+        progress.progress((i) / len(steps), text=f"{label}...")
         try:
             fn()
+            progress.progress((i + 1) / len(steps), text=f"{label} done")
         except Exception as e:
-            progress.progress((i + 1) / len(steps), text=f"{label} failed: {e}")
-    progress.progress(1.0, text="Pipeline complete!")
+            progress.progress((i + 1) / len(steps), text=f"{label} failed")
+            errors.append(f"{label}: {e}")
+            st.error(f"{label} failed: {e}")
+    if errors:
+        st.warning(f"Pipeline completed with {len(errors)} error(s). Some features may be unavailable.")
+    else:
+        progress.progress(1.0, text="Pipeline complete!")
 
 
 def _step_generate():
