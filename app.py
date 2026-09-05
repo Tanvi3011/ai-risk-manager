@@ -1228,9 +1228,9 @@ def page_operations(df: pd.DataFrame, explanations: dict):
                     "Precision": m['precision'],
                     "Recall": m['recall'],
                     "F1 Score": m['f1'],
-                    "Flagged": m['flagged'],
-                    "False Positives": m['false_positives'],
-                    "False Negatives": m['false_negatives'],
+                    "Flagged": m.get('flagged', 0),
+                    "False Positives": m.get('false_positives', m.get('fp', 0)),
+                    "False Negatives": m.get('false_negatives', m.get('fn', 0)),
                 })
             st.dataframe(pd.DataFrame(comp_rows), use_container_width=True, hide_index=True)
             
