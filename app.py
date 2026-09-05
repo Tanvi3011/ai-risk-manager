@@ -12,6 +12,7 @@ evidence-first. Data creates the visual hierarchy, not decorations.
 """
 
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -29,8 +30,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+from src.config import DATA_DIR as _CONFIG_DATA_DIR
+
 PROJECT_ROOT = Path(__file__).resolve().parent
-DATA_DIR = PROJECT_ROOT / "data" / "processed"
+DATA_DIR = _CONFIG_DATA_DIR / "processed"
 
 # ─── Custom CSS — restrained analyst console ───────────────────────────
 st.markdown("""
@@ -179,6 +182,9 @@ st.markdown("""
 def _run_full_pipeline():
     """Generate all data if missing."""
     import subprocess
+    # Set PYTHONPATH so pipeline scripts find src/ config
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(PROJECT_ROOT)
     scripts = [
         "python src/data_generation/generate_transactions.py",
         "python src/features/feature_engineering.py",
@@ -192,7 +198,11 @@ def _run_full_pipeline():
         "python src/agents/explainer.py",
     ]
     for cmd in scripts:
-        subprocess.run(cmd, shell=True, capture_output=True, cwd=str(PROJECT_ROOT))
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=str(PROJECT_ROOT), env=env)
+        if result.returncode != 0:
+            st.warning(f"Step failed: {cmd}")
+            if result.stderr:
+                st.code(result.stderr[:200])
 
 
 @st.cache_data(ttl=60)
