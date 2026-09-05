@@ -413,8 +413,9 @@ def _step_feature_importance():
 
 def _step_agents():
     from src.agents.detector import build_all_cases, case_summary
-    from src.agents.critic import apply_critic_to_all
-    from src.agents.explainer import explain_all
+    from src.agents.critic import run_critic
+    from src.agents.explainer import run_explainer
+    from src.agents.state import InvestigationState, ScoreBreakdown, RiskLevel
     from src.config import PROCESSED_DATA_DIR
     import json as _json
     df = pd.read_csv(PROCESSED_DATA_DIR / "features_with_graph.csv", parse_dates=["timestamp"])
@@ -424,12 +425,61 @@ def _step_agents():
         _json.dump(cases_dicts, f, indent=2, default=str)
     summary = case_summary(cases)
     summary.to_csv(PROCESSED_DATA_DIR / "cases_summary.csv", index=False)
-    cases = apply_critic_to_all(cases)
+    # Run critic on each case
+    for c in cases:
+        sb = ScoreBreakdown(
+            ml_raw=c.ml_score, ml_normalized=c.ml_score,
+            ml_contribution=c.ml_score * 0.35,
+            rules_raw=c.rules_score, rules_contribution=c.rules_score * 0.35,
+            graph_raw=c.graph_score, graph_contribution=c.graph_score * 0.30,
+            base_score=c.risk_score,
+        )
+        state = InvestigationState(
+            transaction_id=c.transaction_id, payer_id=c.payer_id,
+            payee_id=c.payee_id, amount=c.amount, timestamp=c.timestamp,
+            risk_score=c.risk_score,
+            risk_level=RiskLevel(c.risk_level),
+            evidence_list=c.evidence_list, triggered_signals=c.triggered_signals,
+            score_breakdown=sb,
+        )
+        state = run_critic(state)
+        c.risk_score = state.risk_score
+        c.risk_level = state.risk_level.value
     cases_dicts = [vars(c) if hasattr(c, '__dict__') else {} for c in cases]
     with open(PROCESSED_DATA_DIR / "cases_with_critic.json", "w") as f:
         _json.dump(cases_dicts, f, indent=2, default=str)
-    explanations = explain_all(cases)
-    exp_dicts = [{"transaction_id": e.transaction_id, "risk_level": e.risk_level, "confidence": e.confidence, "headline": e.headline, "what_happened": e.what_happened, "why_suspicious": e.why_suspicious, "supporting_evidence": e.supporting_evidence, "graph_context": e.graph_context, "critic_note": e.critic_note, "recommended_action": e.recommended_action} for e in explanations]
+    # Run explainer on each case
+    exp_dicts = []
+    for c in cases:
+        sb = ScoreBreakdown(
+            ml_raw=c.ml_score, ml_normalized=c.ml_score,
+            ml_contribution=c.ml_score * 0.35,
+            rules_raw=c.rules_score, rules_contribution=c.rules_score * 0.35,
+            graph_raw=c.graph_score, graph_contribution=c.graph_score * 0.30,
+            base_score=c.risk_score,
+        )
+        state = InvestigationState(
+            transaction_id=c.transaction_id, payer_id=c.payer_id,
+            payee_id=c.payee_id, amount=c.amount, timestamp=c.timestamp,
+            risk_score=c.risk_score,
+            risk_level=RiskLevel(c.risk_level),
+            evidence_list=c.evidence_list, triggered_signals=c.triggered_signals,
+            score_breakdown=sb,
+        )
+        state = run_explainer(state)
+        exp_dicts.append({
+            "transaction_id": state.transaction_id,
+            "risk_level": state.risk_level.value,
+            "risk_score": state.risk_score,
+            "confidence": getattr(state, 'confidence', 'medium'),
+            "headline": getattr(state, 'headline', ''),
+            "what_happened": getattr(state, 'what_happened', ''),
+            "why_suspicious": getattr(state, 'why_suspicious', ''),
+            "supporting_evidence": getattr(state, 'supporting_evidence', ''),
+            "graph_context": getattr(state, 'graph_context', ''),
+            "critic_note": getattr(state, 'critic_note', ''),
+            "recommended_action": getattr(state, 'recommended_action', ''),
+        })
     with open(PROCESSED_DATA_DIR / "explanations.json", "w") as f:
         _json.dump(exp_dicts, f, indent=2)
 
