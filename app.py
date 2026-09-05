@@ -1328,7 +1328,7 @@ def page_operations(df: pd.DataFrame, explanations: dict):
                 st.markdown(f'<div class="metric-card"><div class="label">Isolation Forest (Unsupervised) F1</div>'
                             f'<div class="value">{iso_f1:.3f}</div></div>', unsafe_allow_html=True)
             
-            if rf_f1 > iso_f1:
+            if rf_f1 > iso_f1 and iso_f1 > 0:
                 improvement = (rf_f1 - iso_f1) / iso_f1 * 100
                 st.info(f"Supervised model improves F1 by {improvement:.0f}% over unsupervised baseline.")
             
