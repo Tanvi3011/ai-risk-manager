@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Risk Manager — Full Project Explanation</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --card: #1a1a2e;
+    --card2: #16213e;
+    --accent: #e94560;
+    --accent2: #0f3460;
+    --green: #2ecc71;
+    --yellow: #f1c40f;
+    --orange: #e67e22;
+    --blue: #3498db;
+    --purple: #9b59b6;
+    --text: #e0e0e0;
+    --muted: #8892b0;
+    --white: #ffffff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .hero {
+    text-align: center;
+    padding: 80px 20px 60px;
+    background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+    border-bottom: 1px solid #333;
+  }
+  .hero h1 {
+    font-size: 2.8rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #e94560, #3498db);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 12px;
+  }
+  .hero .subtitle {
+    font-size: 1.1rem;
+    color: var(--muted);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .hero .badge {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 6px 16px;
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+  
+  /* Section styles */
+  .section {
+    padding: 60px 0;
+    border-bottom: 1px solid #222;
+  }
+  .section-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .section h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 8px;
+  }
+  .section .desc {
+    color: var(--muted);
+    margin-bottom: 32px;
+    max-width: 700px;
+  }
+
+  /* Pipeline flow */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+  .pipeline::before {
+    content: '';
+    position: absolute;
+    left: 40px;
+    top: 20px;
+    bottom: 20px;
+    width: 2px;
+    background: linear-gradient(180deg, var(--accent), var(--blue), var(--green), var(--purple));
+  }
+  .pipe-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 16px 0;
+    position: relative;
+  }
+  .pipe-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 3px solid;
+    background: var(--bg);
+    flex-shrink: 0;
+    z-index: 1;
+    margin-left: 28px;
+    margin-top: 4px;
+  }
+  .pipe-content {
+    flex: 1;
+    background: var(--card);
+    border-radius: 8px;
+    padding: 16px 20px;
+    border: 1px solid #333;
+  }
+  .pipe-content h3 {
+    font-size: 1rem;
+    color: var(--white);
+    margin-bottom: 4px;
+  }
+  .pipe-content p {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .pipe-content code {
+    background: #0d1117;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.78rem;
+    color: var(--accent);
+  }
+  .dot-blue { border-color: var(--blue); }
+  .dot-green { border-color: var(--green); }
+  .dot-yellow { border-color: var(--yellow); }
+  .dot-orange { border-color: var(--orange); }
+  .dot-purple { border-color: var(--purple); }
+  .dot-red { border-color: var(--accent); }
+  .dot-teal { border-color: #1abc9c; }
+
+  /* Metric cards */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin: 24px 0;
+  }
+  .metric {
+    background: var(--card);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .metric .value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    font-family: 'Courier New', monospace;
+    color: var(--white);
+  }
+  .metric .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .metric-red .value { color: var(--accent); }
+  .metric-green .value { color: var(--green); }
+  .metric-blue .value { color: var(--blue); }
+  .metric-yellow .value { color: var(--yellow); }
+
+  /* Architecture diagram */
+  .arch-box {
+    background: var(--card);
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 32px;
+    overflow-x: auto;
+  }
+  .arch-box pre {
+    font-family: 'Courier New', monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--text);
+  }
+  .arch-box .hl-red { color: var(--accent); font-weight: bold; }
+  .arch-box .hl-blue { color: var(--blue); }
+  .arch-box .hl-green { color: var(--green); }
+  .arch-box .hl-yellow { color: var(--yellow); }
+  .arch-box .hl-purple { color: var(--purple); }
+  .arch-box .hl-teal { color: #1abc9c; }
+
+  /* Pages grid */
+  .pages-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  .page-card {
+    background: var(--card);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .page-card:hover {
+    border-color: var(--accent);
+  }
+  .page-card .page-num {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .page-card h3 {
+    font-size: 1.1rem;
+    color: var(--white);
+    margin-bottom: 8px;
+  }
+  .page-card p {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .page-card ul {
+    list-style: none;
+    padding: 0;
+  }
+  .page-card li {
+    font-size: 0.8rem;
+    color: var(--text);
+    padding: 3px 0;
+    padding-left: 16px;
+    position: relative;
+  }
+  .page-card li::before {
+    content: '›';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: bold;
+  }
+
+  /* Score breakdown */
+  .score-viz {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid #333;
+  }
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0;
+  }
+  .score-label {
+    width: 120px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .score-bar-container {
+    flex: 1;
+    height: 24px;
+    background: #1a1a2e;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .score-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 1s ease;
+    position: relative;
+  }
+  .score-fill::after {
+    content: attr(data-val);
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    font-family: 'Courier New', monospace;
+  }
+  .fill-ml { background: linear-gradient(90deg, #3498db, #2980b9); }
+  .fill-rules { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+  .fill-graph { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+  .fill-critic { background: linear-gradient(90deg, #9b59b6, #8e44ad); }
+  .score-weight {
+    width: 60px;
+    text-align: right;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: 'Courier New', monospace;
+  }
+
+  /* Model comparison table */
+  .comp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin: 16px 0;
+  }
+  .comp-table th {
+    text-align: left;
+    padding: 10px 12px;
+    background: #0d1117;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    border-bottom: 1px solid #333;
+  }
+  .comp-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #222;
+    color: var(--text);
+  }
+  .comp-table tr:hover td { background: #1a1a2e; }
+  .comp-table .best { color: var(--green); font-weight: 700; }
+  .comp-table .mono { font-family: 'Courier New', monospace; }
+
+  /* Agent cards */
+  .agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .agent-card {
+    background: var(--card);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .agent-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+  }
+  .agent-card.detector::before { background: var(--orange); }
+  .agent-card.critic::before { background: var(--purple); }
+  .agent-card.investigator::before { background: var(--blue); }
+  .agent-card.explainer::before { background: var(--accent); }
+  .agent-card.guardrails::before { background: var(--green); }
+  .agent-card h4 {
+    font-size: 0.9rem;
+    color: var(--white);
+    margin-bottom: 8px;
+  }
+  .agent-card p {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .agent-card .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+  .tag-deterministic { background: #1a3a1a; color: var(--green); }
+  .tag-llm { background: #3a1a3a; color: var(--purple); }
+  .tag-hybrid { background: #1a1a3a; color: var(--blue); }
+
+  /* Timeline */
+  .timeline {
+    position: relative;
+    padding-left: 40px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #333;
+  }
+  .tl-item {
+    position: relative;
+    padding: 12px 0;
+  }
+  .tl-dot {
+    position: absolute;
+    left: -33px;
+    top: 16px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid;
+    background: var(--bg);
+  }
+  .tl-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--white);
+  }
+  .tl-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .tl-code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    background: #0d1117;
+    padding: 4px 8px;
+    border-radius: 3px;
+    color: var(--accent);
+    display: inline-block;
+    margin-top: 4px;
+  }
+
+  /* Feature importance bars */
+  .fi-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
+  }
+  .fi-name {
+    width: 200px;
+    font-size: 0.8rem;
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+  }
+  .fi-bar-bg {
+    flex: 1;
+    height: 18px;
+    background: #0d1117;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .fi-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #c0392b);
+    border-radius: 3px;
+    transition: width 1s ease;
+  }
+  .fi-val {
+    width: 40px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: 'Courier New', monospace;
+    text-align: right;
+  }
+
+  /* Callout */
+  .callout {
+    background: var(--card2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    margin: 20px 0;
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+  .callout strong { color: var(--white); }
+
+  /* Tech stack */
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  .tech-item {
+    background: var(--card);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+  }
+  .tech-item .tech-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--white);
+  }
+  .tech-item .tech-what {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .hero h1 { font-size: 1.8rem; }
+    .pages-grid { grid-template-columns: 1fr; }
+    .agent-grid { grid-template-columns: 1fr; }
+    .score-row { flex-wrap: wrap; }
+    .score-label { width: 100%; }
+    .pipeline::before { left: 20px; }
+    .pipe-dot { margin-left: 8px; }
+  }
+
+  /* Animations */
+  @media (prefers-reduced-motion: no-preference) {
+    .score-fill, .fi-bar {
+      animation: growWidth 1.2s ease-out forwards;
+    }
+    @keyframes growWidth {
+      from { width: 0; }
+    }
+  }
+
+  /* Nav */
+  .sticky-nav {
+    position: sticky;
+    top: 0;
+    background: rgba(15,15,26,0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #333;
+    z-index: 100;
+    padding: 10px 0;
+  }
+  .nav-inner {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  .nav-inner a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.78rem;
+    padding: 6px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .nav-inner a:hover, .nav-inner a.active {
+    background: var(--card);
+    color: var(--white);
+  }
+
+  .emoji { font-size: 1.2rem; margin-right: 6px; }
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>AI Risk Manager</h1>
+  <p class="subtitle">Multi-agent payment risk investigation and decisioning system — built for the Razorpay AI Buildathon 2026</p>
+  <span class="badge">10,000 transactions • 5 agents • 31 features • Real LLM reasoning</span>
+</div>
+
+<!-- Sticky nav -->
+<nav class="sticky-nav">
+  <div class="nav-inner">
+    <a href="#overview">Overview</a>
+    <a href="#pipeline">Pipeline</a>
+    <a href="#agents">Agents</a>
+    <a href="#scoring">Scoring</a>
+    <a href="#dashboard">Dashboard</a>
+    <a href="#models">Models</a>
+    <a href="#features">Features</a>
+    <a href="#tech">Tech</a>
+  </div>
+</nav>
+
+<div class="container">
+
+<!-- 1. Overview -->
+<section class="section" id="overview">
+  <div class="section-label">01 — Overview</div>
+  <h2>What It Does</h2>
+  <p class="desc">AI Risk Manager detects suspicious payments, investigates their transaction networks, challenges weak alerts with an AI Critic, and produces explainable risk decisions.</p>
+
+  <div class="metrics">
+    <div class="metric metric-blue">
+      <div class="value">10K</div>
+      <div class="label">Transactions</div>
+    </div>
+    <div class="metric metric-red">
+      <div class="value">336</div>
+      <div class="label">Critical</div>
+    </div>
+    <div class="metric metric-yellow">
+      <div class="value">481</div>
+      <div class="label">High Risk</div>
+    </div>
+    <div class="metric">
+      <div class="value">93%</div>
+      <div class="label">Critic Downgrades</div>
+    </div>
+    <div class="metric metric-green">
+      <div class="value">96.4%</div>
+      <div class="label">LightGBM Precision</div>
+    </div>
+    <div class="metric">
+      <div class="value">0.712</div>
+      <div class="label">F1 Score</div>
+    </div>
+    <div class="metric metric-green">
+      <div class="value">8</div>
+      <div class="label">False Positives</div>
+    </div>
+    <div class="metric">
+      <div class="value">3K+</div>
+      <div class="label">Fraud Rings</div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>The Unique Selling Point:</strong> Most fraud detectors just flag transactions. This system <em>investigates relationships</em>, <em>challenges weak alerts</em> via an AI Critic agent, and <em>validates decisions</em> with deterministic guardrails — producing a full explainable case file for each alert.
+  </div>
+</section>
+
+<!-- 2. Pipeline -->
+<section class="section" id="pipeline">
+  <div class="section-label">02 — Pipeline Architecture</div>
+  <h2>How a Payment Gets Analyzed</h2>
+  <p class="desc">Every transaction flows through 5 agents in sequence. The Critic can loop back to request more evidence, creating an investigation feedback loop.</p>
+
+  <div class="arch-box">
+    <pre>
+  <span class="hl-red">Payment Event</span> ── amount, payer, payee, device, IP, time
+        │
+        ▼
+  ┌─────────────────────┐
+  │  <span class="hl-blue">Feature Engine</span>      │  31 behavioral features
+  │  (31 signals)        │  amount_deviation, velocity, odd_hour...
+  └─────────┬───────────┘
+            │
+            ├──────────────────┬──────────────────┐
+            ▼                  ▼                  ▼
+  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐
+  │ <span class="hl-blue">Isolation     │  │ <span class="hl-red">Baseline     │  │ <span class="hl-green">Graph</span>          │
+  │  Forest</span>      │  │  Rules</span>      │  │  Engine</span>         │
+  │  (ML Score)   │  │  (8 signals) │  │  (Network Risk)  │
+  └──────┬───────┘  └──────┬───────┘  └────────┬─────────┘
+         │                 │                    │
+         └─────────────────┼────────────────────┘
+                           ▼
+              ┌────────────────────────┐
+              │  <span class="hl-orange">Detector Agent</span>       │  Weighted risk aggregation
+              │  ML(35%) + Rules(35%)  │  → 0-100 score
+              │  + Graph(30%)          │  → CRITICAL/HIGH/MED/LOW
+              └──────────┬─────────────┘
+                         ▼
+              ┌────────────────────────┐
+              │  <span class="hl-purple">Critic Agent</span>         │  "Are these signals independent?"
+              │  (LLM or Deterministic) │  Can <span class="hl-purple">DOWNGRADE</span> weak alerts
+              └──────────┬─────────────┘
+                         │ [if evidence needed]
+                         ▼
+              ┌────────────────────────┐
+              │  <span class="hl-teal">Investigator Agent</span>   │  Expands graph connections
+              │  (Graph + Velocity)    │  Finds circular flows
+              └──────────┬─────────────┘
+                         │ [loop back to Critic]
+                         ▼
+              ┌────────────────────────┐
+              │  <span class="hl-green">Guardrails</span>            │  Policy validation
+              │  (Deterministic Gate)  │  Blocks unsupported decisions
+              └──────────┬─────────────┘
+                         ▼
+              ┌────────────────────────┐
+              │  <span class="hl-red">Explainer Agent</span>      │  Full case report
+              │  (LLM or Template)     │  Action: ALLOW/STEP-UP/REVIEW/HOLD
+              └────────────────────────┘</pre>
+  </div>
+</section>
+
+<!-- 3. Agents -->
+<section class="section" id="agents">
+  <div class="section-label">03 — The Five Agents</div>
+  <h2>Agent Breakdown</h2>
+  <p class="desc">Each agent has a specific responsibility. Together they form a complete investigation pipeline.</p>
+
+  <div class="agent-grid">
+    <div class="agent-card detector">
+      <h4><span class="emoji">🔍</span>Detector</h4>
+      <p>Combines ML score, rule signals, and graph risk into a weighted 0-100 risk score. Assigns LOW/MEDIUM/HIGH/CRITICAL level.</p>
+      <span class="tag tag-deterministic">Deterministic</span>
+    </div>
+    <div class="agent-card critic">
+      <h4><span class="emoji">🧠</span>Critic</h4>
+      <p>Challenges the Detector's assessment. Asks: "Are these signals actually independent?" Downgrades alerts where shared IP/device is the only real evidence.</p>
+      <span class="tag tag-llm">LLM + Deterministic</span>
+    </div>
+    <div class="agent-card investigator">
+      <h4><span class="emoji">🔎</span>Investigator</h4>
+      <p>When the Critic requests more evidence, this agent expands the graph — finds additional connections, circular transfers, and velocity patterns.</p>
+      <span class="tag tag-deterministic">Deterministic</span>
+    </div>
+    <div class="agent-card guardrails">
+      <h4><span class="emoji">🛡️</span>Guardrails</h4>
+      <p>Final policy gate. Blocks HOLD without 2+ independent evidence sources. Prevents premature ALLOW when ML + graph agree on risk.</p>
+      <span class="tag tag-deterministic">Deterministic</span>
+    </div>
+    <div class="agent-card explainer">
+      <h4><span class="emoji">📋</span>Explainer</h4>
+      <p>Generates a human-readable case report with: what happened, why it's suspicious, supporting evidence, and recommended action.</p>
+      <span class="tag tag-llm">LLM + Template</span>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:24px">
+    <strong>Critic Feedback Loop:</strong> Detector → Critic finds weak evidence → Investigator expands graph → Critic reassesses. This loop can run multiple times, each time strengthening or weakening the case.
+  </div>
+</section>
+
+<!-- 4. Scoring -->
+<section class="section" id="scoring">
+  <div class="section-label">04 — Score Breakdown</div>
+  <h2>How Risk Score is Calculated</h2>
+  <p class="desc">The 0-100 risk score is a weighted combination of three independent signals. Here's an example CRITICAL case.</p>
+
+  <div class="score-viz">
+    <div style="margin-bottom:16px;font-size:0.8rem;color:var(--muted)">Example: TXN006642 — $99,745 at 3 AM from A0414 → A0665</div>
+    
+    <div class="score-row">
+      <div class="score-label">ML Anomaly</div>
+      <div class="score-bar-container">
+        <div class="score-fill fill-ml" style="width:84.2%" data-val="29.5"></div>
+      </div>
+      <div class="score-weight">× 35%</div>
+    </div>
+    
+    <div class="score-row">
+      <div class="score-label">Rules</div>
+      <div class="score-bar-container">
+        <div class="score-fill fill-rules" style="width:69%" data-val="24.2"></div>
+      </div>
+      <div class="score-weight">× 35%</div>
+    </div>
+    
+    <div class="score-row">
+      <div class="score-label">Graph Risk</div>
+      <div class="score-bar-container">
+        <div class="score-fill fill-graph" style="width:85%" data-val="25.5"></div>
+      </div>
+      <div class="score-weight">× 30%</div>
+    </div>
+
+    <div style="border-top:1px solid #333;margin:12px 0;padding-top:12px;display:flex;justify-content:space-between">
+      <span style="font-size:0.85rem;color:var(--white);font-weight:600">Base Score</span>
+      <span style="font-family:'Courier New';color:var(--white);font-weight:700">79.2</span>
+    </div>
+    
+    <div class="score-row">
+      <div class="score-label" style="color:var(--purple)">Critic</div>
+      <div class="score-bar-container">
+        <div class="score-fill fill-critic" style="width:12%" data-val="-15.0"></div>
+      </div>
+      <div class="score-weight" style="color:var(--purple)">-15 pts</div>
+    </div>
+
+    <div style="border-top:1px solid #333;margin:12px 0;padding-top:12px;display:flex;justify-content:space-between">
+      <span style="font-size:0.85rem;color:var(--white);font-weight:600">Final Score</span>
+      <span style="font-family:'Courier New';color:var(--accent);font-weight:700;font-size:1.1rem">64.2 → HIGH</span>
+    </div>
+
+    <div style="font-size:0.8rem;color:var(--muted);margin-top:8px">
+      ⚡ The Critic reduced the score from CRITICAL (79.2) to HIGH (64.2) because shared IP/device signals are weak evidence — they often result from NAT or office networks.
+    </div>
+  </div>
+</section>
+
+<!-- 5. Dashboard Pages -->
+<section class="section" id="dashboard">
+  <div class="section-label">05 — Dashboard UI</div>
+  <h2>The 5-Page Analyst Console</h2>
+  <p class="desc">Designed as a serious internal risk-ops tool — not a flashy AI demo. Information-dense, restrained, data-first.</p>
+
+  <div class="pages-grid">
+    <div class="page-card">
+      <div class="page-num">Page 1</div>
+      <h3>🚨 Risk Queue</h3>
+      <p>Triage alerts by severity. 5 clean metric cards at top, filterable alert rows below.</p>
+      <ul>
+        <li>Metric cards: Total, Critical, High, Medium, Critic Downgrades</li>
+        <li>Risk chips (CRITICAL/HIGH/MEDIUM/LOW) with color coding</li>
+        <li>Filter by risk level, sort by score/amount/time</li>
+        <li>Search by transaction ID or account</li>
+        <li>Compact rows: ID, payer→payee, amount, score</li>
+      </ul>
+    </div>
+    <div class="page-card">
+      <div class="page-num">Page 2</div>
+      <h3>🔍 Case Investigation</h3>
+      <p>Deep dive into a single transaction. 4 evidence tabs.</p>
+      <ul>
+        <li>Header: risk chip + action chip + score bar</li>
+        <li>Device, IP, Amount, Anomaly Score detail cards</li>
+        <li>Tab: Evidence (typed badges: ml/rule/graph/context)</li>
+        <li>Tab: Score Breakdown (ML + Rules + Graph + Critic)</li>
+        <li>Tab: Critic Review (downgrade reasoning)</li>
+        <li>Tab: Triggered Signals (which rules fired)</li>
+      </ul>
+    </div>
+    <div class="page-card">
+      <div class="page-num">Page 3</div>
+      <h3>🕸️ Network</h3>
+      <p>Interactive fraud network graph with ring detection.</p>
+      <ul>
+        <li>3,000+ fraud rings detected via NetworkX</li>
+        <li>Select a ring to see accounts and transfers</li>
+        <li>Color-coded nodes: red=account, green=device, blue=IP</li>
+        <li>Ring stats: transaction count, total volume</li>
+        <li>Account risk profile table</li>
+      </ul>
+    </div>
+    <div class="page-card">
+      <div class="page-num">Page 4</div>
+      <h3>📊 AI Investigation Trace</h3>
+      <p>Chronological timeline showing what each agent did.</p>
+      <ul>
+        <li>System → ML → Rules → Graph → Detector → Critic → Guardrails → Explainer</li>
+        <li>Color-coded by agent type</li>
+        <li>Shows reasoning at each step</li>
+        <li>Full case report at bottom</li>
+      </ul>
+    </div>
+    <div class="page-card">
+      <div class="page-num">Page 5</div>
+      <h3>⚙️ Operations</h3>
+      <p>Model metrics, comparison, and system health. 6 tabs.</p>
+      <ul>
+        <li>Metrics: Precision, Recall, F1, Confusion Matrix</li>
+        <li>Model Comparison: Isolation Forest vs LightGBM</li>
+        <li>Critic Impact: Before/After distribution chart</li>
+        <li>Feature Importance: Top features + rule recall</li>
+        <li>System: Dataset stats, LLM status, architecture</li>
+      </ul>
+    </div>
+    <div class="page-card">
+      <div class="page-num">Sidebar</div>
+      <h3>⚡ Real-Time Analyzer</h3>
+      <p>Analyze new payments on-the-fly via the sidebar form.</p>
+      <ul>
+        <li>Input: Amount, Payer ID, Payee ID, Device, IP</li>
+        <li>Runs full pipeline in seconds</li>
+        <li>Returns: Risk level, score, action</li>
+        <li>Great for live demo during presentation</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 6. Models -->
+<section class="section" id="models">
+  <div class="section-label">06 — Model Comparison</div>
+  <h2>Unsupervised vs Supervised</h2>
+  <p class="desc">Two detection models run in parallel. The supervised model crushes the unsupervised baseline.</p>
+
+  <table class="comp-table">
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>Precision</th>
+        <th>Recall</th>
+        <th>F1</th>
+        <th>Flagged</th>
+        <th>False Positives</th>
+        <th>False Negatives</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Isolation Forest (unsupervised)</td>
+        <td class="mono">0.850</td>
+        <td class="mono">0.444</td>
+        <td class="mono">0.583</td>
+        <td class="mono">200</td>
+        <td class="mono">30</td>
+        <td class="mono">213</td>
+      </tr>
+      <tr style="background:#0d1117">
+        <td><strong>LightGBM (supervised)</strong></td>
+        <td class="mono best">0.964</td>
+        <td class="mono best">0.564</td>
+        <td class="mono best">0.712</td>
+        <td class="mono best">224</td>
+        <td class="mono best">8</td>
+        <td class="mono best">167</td>
+      </tr>
+      <tr>
+        <td>Ensemble AND (both agree)</td>
+        <td class="mono best">1.000</td>
+        <td class="mono">0.433</td>
+        <td class="mono">0.605</td>
+        <td class="mono">166</td>
+        <td class="mono best">0</td>
+        <td class="mono">217</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>Key insight for judges:</strong> LightGBM achieves <strong>F1=0.712</strong> with <strong>96.4% precision</strong> — catching 56% of fraud with only 8 false positives out of 2,000 test transactions. And when both models agree (AND ensemble), you get <strong>100% precision</strong> — zero false positives.
+  </div>
+</section>
+
+<!-- 7. Feature Importance -->
+<section class="section" id="features">
+  <div class="section-label">07 — Feature Importance</div>
+  <h2>What Drives Fraud Detection</h2>
+  <p class="desc">Random Forest trained on labeled fraud reveals which features matter most.</p>
+
+  <div style="background:var(--card);border:1px solid #333;border-radius:12px;padding:24px">
+    <div class="fi-row">
+      <div class="fi-name">amount</div>
+      <div class="fi-bar-bg"><div class="fi-bar" style="width:100%"></div></div>
+      <div class="fi-val">0.103</div>
+    </div>
+    <div class="fi-row">
+      <div class="fi-name">log_amount</div>
+      <div class="fi-bar-bg"><div class="fi-bar" style="width:91%"></div></div>
+      <div class="fi-val">0.094</div>
+    </div>
+    <div class="fi-row">
+      <div class="fi-name">anomaly_score</div>
+      <div class="fi-bar-bg"><div class="fi-bar" style="width:78%"></div></div>
+      <div class="fi-val">0.081</div>
+    </div>
+    <div class="fi-row">
+      <div class="fi-name">amount_deviation_from_mean</div>
+      <div class="fi-bar-bg"><div class="fi-bar" style="width:67%"></div></div>
+      <div class="fi-val">0.069</div>
+    </div>
+    <div class="fi-row">
+      <div class="fi-name">amount_ratio_to_median</div>
+      <div class="fi-bar-bg"><div class="fi-bar" style="width:47%"></div></div>
+      <div class="fi-val">0.048</div>
+    </div>
+    <div class="fi-row">
+      <div class="fi-name">ip_total_txn_count</div>
+      <div class="fi-bar-bg"><div class="fi-bar" style="width:37%"></div></div>
+      <div class="fi-val">0.039</div>
+    </div>
+    <div class="fi-row">
+      <div class="fi-name">device_account_count</div>
+      <div class="fi-bar-bg"><div class="fi-bar" style="width:35%"></div></div>
+      <div class="fi-val">0.036</div>
+    </div>
+  </div>
+
+  <div style="margin-top:24px">
+    <h3 style="color:var(--white);margin-bottom:12px">Rule Recall on Actual Fraud</h3>
+    <table class="comp-table">
+      <thead><tr><th>Rule</th><th>Fraud Caught</th><th>Recall</th></tr></thead>
+      <tbody>
+        <tr><td>shared_ip_multiuser</td><td class="mono">1917/1917</td><td class="mono best">100.0%</td></tr>
+        <tr><td>shared_device_multiuser</td><td class="mono">1910/1917</td><td class="mono best">99.6%</td></tr>
+        <tr><td>many_new_payees_24h</td><td class="mono">282/1917</td><td class="mono">14.7%</td></tr>
+        <tr><td>high_velocity_5min</td><td class="mono">263/1917</td><td class="mono">13.7%</td></tr>
+        <tr><td>odd_hour_high_value</td><td class="mono">168/1917</td><td class="mono">8.8%</td></tr>
+        <tr><td>circular_transfer_hint</td><td class="mono">20/1917</td><td class="mono">1.0%</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 8. Tech Stack -->
+<section class="section" id="tech">
+  <div class="section-label">08 — Tech Stack</div>
+  <h2>Built With</h2>
+  <p class="desc">Every library is already in the project — no new dependencies needed to run.</p>
+
+  <div class="tech-grid">
+    <div class="tech-item">
+      <div class="tech-name">Streamlit</div>
+      <div class="tech-what">Dashboard UI</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-name">Scikit-learn</div>
+      <div class="tech-what">Isolation Forest</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-name">LightGBM</div>
+      <div class="tech-what">Supervised Model</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-name">NetworkX</div>
+      <div class="tech-what">Graph Analysis</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-name">OpenAI API</div>
+      <div class="tech-what">LLM (Groq)</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-name">Pandas</div>
+      <div class="tech-what">Data Processing</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-name">NumPy</div>
+      <div class="tech-what">Numerical Compute</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-name">Faker</div>
+      <div class="tech-what">Synthetic Data</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-name">Matplotlib</div>
+      <div class="tech-what">Graph Viz</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-name">imbalanced-learn</div>
+      <div class="tech-what">SMOTE</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-name">python-dotenv</div>
+      <div class="tech-what">Config Mgmt</div>
+    </div>
+    <div class="tech-item">
+      <div class="tech-name">Docker</div>
+      <div class="tech-what">Containerized Deploy</div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:24px">
+    <strong>LLM-Optional Design:</strong> The system works fully offline with deterministic agents. Set <code>GROQ_API_KEY</code> in <code>.env</code> to enable LLM-powered Critic and Explainer for genuine AI reasoning. Falls back gracefully.
+  </div>
+</section>
+
+<!-- Footer -->
+<div style="text-align:center;padding:60px 0 40px;color:var(--muted);font-size:0.8rem">
+  <div style="color:var(--white);font-weight:600;margin-bottom:8px">AI Risk Manager</div>
+  Built for Razorpay AI Buildathon 2026<br>
+  <span style="color:var(--accent)">Detect → Investigate → Challenge → Explain → Guard</span>
+</div>
+
+</div>
+
+<script>
+  // Smooth scroll for nav
+  document.querySelectorAll('.nav-inner a').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  // Active nav highlight on scroll
+  const sections = document.querySelectorAll('.section[id]');
+  const navLinks = document.querySelectorAll('.nav-inner a');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 100) current = s.id;
+    });
+    navLinks.forEach(l => {
+      l.classList.toggle('active', l.getAttribute('href') === '#' + current);
+    });
+  });
+</script>
+</body>
+</html>

@@ -249,8 +249,8 @@ def _step_generate():
             days=_random.randint(0, 180), hours=hour,
             minutes=_random.randint(0, 59), seconds=_random.randint(0, 59)
         )
-        amount = round(_np.random.lognormal(mean=6.0, sigma=1.0), 2)
-        amount = min(amount, 50000)
+        amount = round(_np.random.lognormal(mean=6.0, sigma=1.0) * 83, 2)
+        amount = min(amount, 4150000)
         transactions.append({
             "transaction_id": f"TXN{str(i+1).zfill(6)}",
             "timestamp": ts, "payer_id": payer,
@@ -282,7 +282,7 @@ def _add_fraud_patterns(transactions, users, devices, ips, _random, _np, start_d
             "transaction_id": f"TXN{len(transactions)+1:06d}", "timestamp": ts,
             "payer_id": payer, "payee_id": _random.choice(users),
             "merchant_id": _random.choice([f"M{str(i).zfill(4)}" for i in range(1, 201)]),
-            "amount": round(_np.random.uniform(5000, 50000), 2),
+            "amount": round(_np.random.uniform(415000, 4150000), 2),
             "device_id": _random.choice(devices), "ip_address": _random.choice(ips),
             "is_fraud": 1, "fraud_pattern": "odd_hour_high_value",
         })
@@ -297,7 +297,7 @@ def _add_fraud_patterns(transactions, users, devices, ips, _random, _np, start_d
                 "transaction_id": f"TXN{len(transactions)+1:06d}", "timestamp": ts,
                 "payer_id": payer, "payee_id": _random.choice(users),
                 "merchant_id": _random.choice([f"M{str(i).zfill(4)}" for i in range(1, 201)]),
-                "amount": round(_np.random.uniform(100, 5000), 2),
+                "amount": round(_np.random.uniform(8300, 415000), 2),
                 "device_id": _random.choice(devices), "ip_address": _random.choice(ips),
                 "is_fraud": 1, "fraud_pattern": "rapid_fanout",
             })
@@ -312,7 +312,7 @@ def _add_fraud_patterns(transactions, users, devices, ips, _random, _np, start_d
                 "transaction_id": f"TXN{len(transactions)+1:06d}", "timestamp": ts,
                 "payer_id": payer, "payee_id": _random.choice(users),
                 "merchant_id": _random.choice([f"M{str(i).zfill(4)}" for i in range(1, 201)]),
-                "amount": round(_np.random.uniform(50, 3000), 2),
+                "amount": round(_np.random.uniform(4150, 249000), 2),
                 "device_id": _random.choice(devices), "ip_address": _random.choice(ips),
                 "is_fraud": 1, "fraud_pattern": "new_payee_burst",
             })
@@ -328,7 +328,7 @@ def _add_fraud_patterns(transactions, users, devices, ips, _random, _np, start_d
                 "transaction_id": f"TXN{len(transactions)+1:06d}", "timestamp": ts,
                 "payer_id": chain[j], "payee_id": chain[j+1],
                 "merchant_id": _random.choice([f"M{str(i).zfill(4)}" for i in range(1, 201)]),
-                "amount": round(_np.random.uniform(1000, 20000), 2),
+                "amount": round(_np.random.uniform(83000, 1660000), 2),
                 "device_id": _random.choice(devices), "ip_address": _random.choice(ips),
                 "is_fraud": 1, "fraud_pattern": "circular_transfer",
             })
@@ -344,7 +344,7 @@ def _add_fraud_patterns(transactions, users, devices, ips, _random, _np, start_d
                 "transaction_id": f"TXN{len(transactions)+1:06d}", "timestamp": ts,
                 "payer_id": acct, "payee_id": _random.choice(users),
                 "merchant_id": _random.choice([f"M{str(i).zfill(4)}" for i in range(1, 201)]),
-                "amount": round(_np.random.uniform(500, 15000), 2),
+                "amount": round(_np.random.uniform(41500, 1245000), 2),
                 "device_id": device, "ip_address": _random.choice(ips),
                 "is_fraud": 1, "fraud_pattern": "shared_device",
             })
