@@ -673,7 +673,7 @@ def page_risk_queue(df: pd.DataFrame, explanations: dict):
             f'<span style="font-size:0.7rem;color:#999">→</span>'
             f'<span style="font-size:0.82rem;color:#666;min-width:80px">{item["payee"]}</span>'
             f'<span style="font-family:monospace;font-size:0.82rem;margin-left:auto">'
-            f'${item["amount"]:,.2f}</span>'
+            f'₹{item["amount"]:,.2f}</span>'
             f'<span style="font-family:monospace;font-size:0.75rem;color:#999;min-width:60px;text-align:right">'
             f'{item["risk_score"]:.1f}</span>'
             f'</div>'
@@ -710,7 +710,7 @@ def page_investigation(df: pd.DataFrame, explanations: dict):
             acct_txns = df[df["payer_id"] == acct].sort_values("timestamp", ascending=False)
             flagged = acct_txns[acct_txns.get("anomaly_flag", pd.Series([0])) == 1]
             st.caption(f"{len(acct_txns)} transactions | {len(flagged)} flagged | "
-                       f"${acct_txns['amount'].sum():,.2f} total")
+                       f"₹{acct_txns['amount'].sum():,.2f} total")
             st.dataframe(
                 acct_txns[["transaction_id", "timestamp", "payee_id", "amount",
                            "anomaly_score", "graph_risk_score"]].head(20),
@@ -734,7 +734,7 @@ def page_investigation(df: pd.DataFrame, explanations: dict):
     with hcol1:
         st.markdown(f"### {selected}")
         st.caption(f"{row.get('payer_id', '')} → {row.get('payee_id', '')} | "
-                   f"${row.get('amount', 0):,.2f} | {str(row.get('timestamp', ''))[:19]}")
+                   f"₹{row.get('amount', 0):,.2f} | {str(row.get('timestamp', ''))[:19]}")
     with hcol2:
         st.markdown(f"### {risk_chip(risk_level)}", unsafe_allow_html=True)
     with hcol3:
@@ -757,7 +757,7 @@ def page_investigation(df: pd.DataFrame, explanations: dict):
         st.code(row.get("ip_address", "N/A"))
     with dcol3:
         st.markdown("**Amount**")
-        st.code(f"${row.get('amount', 0):,.2f}")
+        st.code(f"₹{row.get('amount', 0):,.2f}")
     with dcol4:
         st.markdown("**Anomaly Score**")
         st.code(f"{row.get('anomaly_score', 0):.4f}")
@@ -890,7 +890,7 @@ def page_network(df: pd.DataFrame, explanations: dict):
         ring_accts = ring["accounts"]
         ring_txns = df[df["payer_id"].isin(ring_accts)]
         st.metric("Transactions", len(ring_txns))
-        st.metric("Total Volume", f"${ring_txns['amount'].sum():,.0f}")
+        st.metric("Total Volume", f"₹{ring_txns['amount'].sum():,.0f}")
 
     with ncol2:
         # Build and render graph
@@ -1069,7 +1069,7 @@ def _build_timeline_from_explanation(row: pd.Series, exp: dict) -> list[dict]:
 
     events.append({
         "agent": "System",
-        "summary": f"Payment received: ${row.get('amount', 0):,.2f} "
+        "summary": f"Payment received: ₹{row.get('amount', 0):,.2f} "
                    f"({row.get('payer_id', '')} → {row.get('payee_id', '')})",
         "details": f"Device: {row.get('device_id', '')} | IP: {row.get('ip_address', '')}",
     })
@@ -1455,7 +1455,7 @@ def add_realtime_panel(df: pd.DataFrame):
     st.sidebar.markdown("**Analyze New Payment**")
 
     with st.sidebar.form("realtime_form"):
-        rt_amount = st.number_input("Amount ($)", min_value=0.0, value=5000.0, step=100.0)
+        rt_amount = st.number_input("Amount (₹)", min_value=0.0, value=5000.0, step=100.0)
         rt_payer = st.text_input("Payer ID", value="A0001")
         rt_payee = st.text_input("Payee ID", value="A0002")
         rt_device = st.text_input("Device ID", value="D0001")
