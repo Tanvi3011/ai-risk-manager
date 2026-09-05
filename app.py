@@ -425,8 +425,8 @@ def _step_agents():
         _json.dump(cases_dicts, f, indent=2, default=str)
     summary = case_summary(cases)
     summary.to_csv(PROCESSED_DATA_DIR / "cases_summary.csv", index=False)
-    # Run critic on each case
-    for c in cases:
+
+    def _make_state(c):
         sb = ScoreBreakdown(
             ml_raw=c.ml_score, ml_normalized=c.ml_score,
             ml_contribution=c.ml_score * 0.35,
@@ -434,7 +434,7 @@ def _step_agents():
             graph_raw=c.graph_score, graph_contribution=c.graph_score * 0.30,
             base_score=c.risk_score,
         )
-        state = InvestigationState(
+        return InvestigationState(
             transaction_id=c.transaction_id, payer_id=c.payer_id,
             payee_id=c.payee_id, amount=c.amount, timestamp=c.timestamp,
             risk_score=c.risk_score,
@@ -442,30 +442,33 @@ def _step_agents():
             evidence_list=c.evidence_list, triggered_signals=c.triggered_signals,
             score_breakdown=sb,
         )
+
+    def _quick_exp(c):
+        return {
+            "transaction_id": c.transaction_id,
+            "risk_level": c.risk_level,
+            "risk_score": c.risk_score,
+            "confidence": "medium",
+            "headline": f"{c.transaction_id}: INR {c.amount:,.2f} ({c.risk_level})",
+            "what_happened": f"Payment of INR {c.amount:,.2f} from {c.payer_id} to {c.payee_id}.",
+            "why_suspicious": f"Risk score {c.risk_score:.1f}/100. Evidence: {', '.join(c.triggered_signals[:3]) if c.triggered_signals else 'none'}.",
+            "supporting_evidence": " | ".join(e.get("description", "") for e in c.evidence_list[:5]),
+            "graph_context": "", "critic_note": "", "recommended_action": c.recommended_action,
+        }
+
+    # Full agent pipeline only on flagged/high-risk (fast)
+    flagged = [c for c in cases if c.risk_level in ("HIGH", "CRITICAL") or c.ml_score > 0.7]
+    for c in flagged:
+        state = _make_state(c)
         state = run_critic(state)
         c.risk_score = state.risk_score
         c.risk_level = state.risk_level.value
     cases_dicts = [vars(c) if hasattr(c, '__dict__') else {} for c in cases]
     with open(PROCESSED_DATA_DIR / "cases_with_critic.json", "w") as f:
         _json.dump(cases_dicts, f, indent=2, default=str)
-    # Run explainer on each case
     exp_dicts = []
-    for c in cases:
-        sb = ScoreBreakdown(
-            ml_raw=c.ml_score, ml_normalized=c.ml_score,
-            ml_contribution=c.ml_score * 0.35,
-            rules_raw=c.rules_score, rules_contribution=c.rules_score * 0.35,
-            graph_raw=c.graph_score, graph_contribution=c.graph_score * 0.30,
-            base_score=c.risk_score,
-        )
-        state = InvestigationState(
-            transaction_id=c.transaction_id, payer_id=c.payer_id,
-            payee_id=c.payee_id, amount=c.amount, timestamp=c.timestamp,
-            risk_score=c.risk_score,
-            risk_level=RiskLevel(c.risk_level),
-            evidence_list=c.evidence_list, triggered_signals=c.triggered_signals,
-            score_breakdown=sb,
-        )
+    for c in flagged:
+        state = _make_state(c)
         state = run_explainer(state)
         exp_dicts.append({
             "transaction_id": state.transaction_id,
@@ -480,6 +483,10 @@ def _step_agents():
             "critic_note": getattr(state, 'critic_note', ''),
             "recommended_action": getattr(state, 'recommended_action', ''),
         })
+    # Quick explanations for the rest
+    for c in cases:
+        if c.transaction_id not in {e["transaction_id"] for e in exp_dicts}:
+            exp_dicts.append(_quick_exp(c))
     with open(PROCESSED_DATA_DIR / "explanations.json", "w") as f:
         _json.dump(exp_dicts, f, indent=2)
 
