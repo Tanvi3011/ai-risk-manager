@@ -412,6 +412,9 @@ def _step_feature_importance():
 
 
 def _step_agents():
+    import os as _os
+    _saved_key = _os.environ.pop("GROQ_API_KEY", None)
+    _os.environ.pop("OPENAI_API_KEY", None)
     from src.agents.detector import build_all_cases, case_summary
     from src.agents.critic import run_critic
     from src.agents.explainer import run_explainer
@@ -489,6 +492,8 @@ def _step_agents():
             exp_dicts.append(_quick_exp(c))
     with open(PROCESSED_DATA_DIR / "explanations.json", "w") as f:
         _json.dump(exp_dicts, f, indent=2)
+    if _saved_key:
+        _os.environ["GROQ_API_KEY"] = _saved_key
 
 
 @st.cache_data(ttl=60)
