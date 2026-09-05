@@ -896,9 +896,9 @@ def page_network(df: pd.DataFrame, explanations: dict):
         # Build and render graph
         G = _build_ring_subgraph(df, ring)
 
-        import matplotlib
+        import matplotlib 
         matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt 
 
         fig, ax = plt.subplots(1, 1, figsize=(12, 8))
         fig.patch.set_facecolor("#fafafa")
