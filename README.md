@@ -1,3 +1,15 @@
+---
+title: AI Risk Manager
+emoji: 🔍
+colorFrom: indigo
+colorTo: red
+sdk: streamlit
+sdk_version: 1.41.1
+app_file: app.py
+pinned: false
+license: mit
+---
+
 # AI Risk Manager
 
 **AI-powered payment risk investigation and decisioning for Razorpay.**
