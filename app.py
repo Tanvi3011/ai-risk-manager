@@ -34,6 +34,7 @@ from src.config import DATA_DIR as _CONFIG_DATA_DIR
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_DIR = _CONFIG_DATA_DIR / "processed"
+RAW_DIR = _CONFIG_DATA_DIR / "raw"
 
 # ─── Custom CSS — restrained analyst console ───────────────────────────
 st.markdown("""
@@ -181,30 +182,30 @@ st.markdown("""
 
 def _run_full_pipeline():
     """Generate all data if missing — runs in-process."""
-    from src.config import DATA_DIR, RAW_DATA_DIR
-
     steps = [
-        ("Generating transactions", lambda: _step_generate()),
-        ("Building features", lambda: _step_features()),
-        ("Applying rules", lambda: _step_rules()),
-        ("Training Isolation Forest", lambda: _step_isolation_forest()),
-        ("Building graph", lambda: _step_graph()),
-        ("Training LightGBM", lambda: _step_lightgbm()),
-        ("Feature importance", lambda: _step_feature_importance()),
-        ("Running agents", lambda: _step_agents()),
+        ("Generating transactions", _step_generate),
+        ("Building features", _step_features),
+        ("Applying rules", _step_rules),
+        ("Training Isolation Forest", _step_isolation_forest),
+        ("Building graph", _step_graph),
+        ("Training LightGBM", _step_lightgbm),
+        ("Feature importance", _step_feature_importance),
+        ("Running agents", _step_agents),
     ]
 
     progress = st.progress(0, text="Starting pipeline...")
     errors = []
     for i, (label, fn) in enumerate(steps):
-        progress.progress((i) / len(steps), text=f"{label}...")
+        progress.progress(i / len(steps), text=f"{label}...")
         try:
             fn()
             progress.progress((i + 1) / len(steps), text=f"{label} done")
         except Exception as e:
+            import traceback
             progress.progress((i + 1) / len(steps), text=f"{label} failed")
             errors.append(f"{label}: {e}")
-            st.error(f"{label} failed: {e}")
+            st.error(f"**{label} failed:** {e}")
+            st.code(traceback.format_exc())
     if errors:
         st.warning(f"Pipeline completed with {len(errors)} error(s). Some features may be unavailable.")
     else:
@@ -212,25 +213,156 @@ def _run_full_pipeline():
 
 
 def _step_generate():
+    """Generate synthetic transactions in-process."""
     from src.config import RAW_DATA_DIR
+    import random as _random
+    from datetime import datetime, timedelta
+    import numpy as _np
+    import pandas as _pd
+    from faker import Faker
+
+    _random.seed(42)
+    _np.random.seed(42)
+    fake = Faker()
+    Faker.seed(42)
+
+    NUM_TXN = 10000
+    NUM_USERS = 1000
+    NUM_MERCHANTS = 200
+    NUM_DEVICES = 1200
+    NUM_IPS = 800
+
+    _users = [f"A{str(i).zfill(4)}" for i in range(1, NUM_USERS + 1)]
+    _merchants = [f"M{str(i).zfill(4)}" for i in range(1, NUM_MERCHANTS + 1)]
+    _devices = [f"D{str(i).zfill(4)}" for i in range(1, NUM_DEVICES + 1)]
+    _ips = [fake.ipv4() for _ in range(NUM_IPS)]
+
+    start_date = datetime(2026, 1, 1)
+    transactions = []
+    for i in range(NUM_TXN):
+        payer = _random.choice(_users)
+        hour = _random.choices(
+            range(24),
+            weights=[1,1,1,1,1,1,2,4,7,8,8,8,8,8,8,8,7,6,5,4,3,2,1,1]
+        )[0]
+        ts = start_date + timedelta(
+            days=_random.randint(0, 180), hours=hour,
+            minutes=_random.randint(0, 59), seconds=_random.randint(0, 59)
+        )
+        amount = round(_np.random.lognormal(mean=6.0, sigma=1.0), 2)
+        amount = min(amount, 50000)
+        transactions.append({
+            "transaction_id": f"TXN{str(i+1).zfill(6)}",
+            "timestamp": ts, "payer_id": payer,
+            "payee_id": _random.choice(_users),
+            "merchant_id": _random.choice(_merchants),
+            "amount": amount,
+            "device_id": _random.choice(_devices),
+            "ip_address": _random.choice(_ips),
+            "is_fraud": 0, "fraud_pattern": "normal",
+        })
+
+    # Fraud patterns
+    _add_fraud_patterns(transactions, _users, _devices, _ips, _random, _np, start_date)
+
+    df = _pd.DataFrame(transactions).sort_values("timestamp")
     RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    exec(open(PROJECT_ROOT / "src" / "data_generation" / "generate_transactions.py", encoding="utf-8").read())
+    df.to_csv(RAW_DATA_DIR / "transactions.csv", index=False)
+
+
+def _add_fraud_patterns(transactions, users, devices, ips, _random, _np, start_date):
+    """Add fraud patterns to transaction list."""
+    from datetime import timedelta
+
+    # Pattern 1: High-value at odd hours
+    for _ in range(30):
+        payer = _random.choice(users)
+        ts = start_date + timedelta(days=_random.randint(0, 180), hours=_random.randint(0, 5), minutes=_random.randint(0, 59))
+        transactions.append({
+            "transaction_id": f"TXN{len(transactions)+1:06d}", "timestamp": ts,
+            "payer_id": payer, "payee_id": _random.choice(users),
+            "merchant_id": _random.choice([f"M{str(i).zfill(4)}" for i in range(1, 201)]),
+            "amount": round(_np.random.uniform(5000, 50000), 2),
+            "device_id": _random.choice(devices), "ip_address": _random.choice(ips),
+            "is_fraud": 1, "fraud_pattern": "odd_hour_high_value",
+        })
+
+    # Pattern 2: Rapid fan-out
+    for _ in range(25):
+        payer = _random.choice(users)
+        base_ts = start_date + timedelta(days=_random.randint(0, 180), hours=_random.randint(8, 22))
+        for j in range(_random.randint(4, 8)):
+            ts = base_ts + timedelta(minutes=j * _random.randint(1, 3))
+            transactions.append({
+                "transaction_id": f"TXN{len(transactions)+1:06d}", "timestamp": ts,
+                "payer_id": payer, "payee_id": _random.choice(users),
+                "merchant_id": _random.choice([f"M{str(i).zfill(4)}" for i in range(1, 201)]),
+                "amount": round(_np.random.uniform(100, 5000), 2),
+                "device_id": _random.choice(devices), "ip_address": _random.choice(ips),
+                "is_fraud": 1, "fraud_pattern": "rapid_fanout",
+            })
+
+    # Pattern 3: New payee burst
+    for _ in range(20):
+        payer = _random.choice(users)
+        base_ts = start_date + timedelta(days=_random.randint(0, 180), hours=_random.randint(8, 22))
+        for j in range(_random.randint(5, 10)):
+            ts = base_ts + timedelta(minutes=j * _random.randint(2, 10))
+            transactions.append({
+                "transaction_id": f"TXN{len(transactions)+1:06d}", "timestamp": ts,
+                "payer_id": payer, "payee_id": _random.choice(users),
+                "merchant_id": _random.choice([f"M{str(i).zfill(4)}" for i in range(1, 201)]),
+                "amount": round(_np.random.uniform(50, 3000), 2),
+                "device_id": _random.choice(devices), "ip_address": _random.choice(ips),
+                "is_fraud": 1, "fraud_pattern": "new_payee_burst",
+            })
+
+    # Pattern 4: Circular transfers
+    for _ in range(15):
+        chain = [_random.choice(users) for _ in range(_random.randint(3, 6))]
+        chain.append(chain[0])
+        base_ts = start_date + timedelta(days=_random.randint(0, 180), hours=_random.randint(10, 22))
+        for j in range(len(chain) - 1):
+            ts = base_ts + timedelta(minutes=j * _random.randint(5, 30))
+            transactions.append({
+                "transaction_id": f"TXN{len(transactions)+1:06d}", "timestamp": ts,
+                "payer_id": chain[j], "payee_id": chain[j+1],
+                "merchant_id": _random.choice([f"M{str(i).zfill(4)}" for i in range(1, 201)]),
+                "amount": round(_np.random.uniform(1000, 20000), 2),
+                "device_id": _random.choice(devices), "ip_address": _random.choice(ips),
+                "is_fraud": 1, "fraud_pattern": "circular_transfer",
+            })
+
+    # Pattern 5: Shared device
+    for _ in range(10):
+        device = _random.choice(devices)
+        accts = _random.sample(users, _random.randint(3, 6))
+        base_ts = start_date + timedelta(days=_random.randint(0, 180), hours=_random.randint(8, 22))
+        for j, acct in enumerate(accts):
+            ts = base_ts + timedelta(minutes=j * _random.randint(1, 5))
+            transactions.append({
+                "transaction_id": f"TXN{len(transactions)+1:06d}", "timestamp": ts,
+                "payer_id": acct, "payee_id": _random.choice(users),
+                "merchant_id": _random.choice([f"M{str(i).zfill(4)}" for i in range(1, 201)]),
+                "amount": round(_np.random.uniform(500, 15000), 2),
+                "device_id": device, "ip_address": _random.choice(ips),
+                "is_fraud": 1, "fraud_pattern": "shared_device",
+            })
+
 
 
 def _step_features():
     from src.features.feature_engineering import build_feature_matrix
     from src.config import RAW_DATA_DIR, PROCESSED_DATA_DIR
-    import pandas as pd
+    PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
     df = pd.read_csv(RAW_DATA_DIR / "transactions.csv", parse_dates=["timestamp"])
     features = build_feature_matrix(df)
-    PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
     features.to_csv(PROCESSED_DATA_DIR / "features.csv", index=False)
 
 
 def _step_rules():
     from src.features.rules import apply_rules
     from src.config import PROCESSED_DATA_DIR
-    import pandas as pd
     df = pd.read_csv(PROCESSED_DATA_DIR / "features.csv", parse_dates=["timestamp"])
     df_rules = apply_rules(df)
     df_rules.to_csv(PROCESSED_DATA_DIR / "features_with_rules.csv", index=False)
@@ -240,7 +372,6 @@ def _step_isolation_forest():
     from src.models.anomaly_detector import train_isolation_forest, predict_anomaly
     from src.features.feature_engineering import get_feature_columns
     from src.config import PROCESSED_DATA_DIR
-    import pandas as pd, numpy as np
     from sklearn.preprocessing import StandardScaler
     df = pd.read_csv(PROCESSED_DATA_DIR / "features_with_rules.csv", parse_dates=["timestamp"])
     feature_cols = [c for c in get_feature_columns(df) if not c.startswith("rule_")]
@@ -255,26 +386,9 @@ def _step_isolation_forest():
     df.to_csv(PROCESSED_DATA_DIR / "features_with_ml.csv", index=False)
 
 
-def _step_lightgbm():
-    from src.models.supervised_detector import run_dual_model_comparison
-    from src.config import DATA_DIR
-    import pandas as pd
-    df = pd.read_csv(DATA_DIR / "processed" / "features_with_graph.csv", parse_dates=["timestamp"])
-    run_dual_model_comparison(df)
-
-
-def _step_feature_importance():
-    from src.models.feature_importance import save_feature_importances
-    from src.config import DATA_DIR
-    import pandas as pd
-    df = pd.read_csv(DATA_DIR / "processed" / "features_with_graph.csv", parse_dates=["timestamp"])
-    save_feature_importances(df)
-
-
 def _step_graph():
-    from src.graphs.graph_engine import build_transaction_graph, compute_graph_signals, detect_fraud_rings
+    from src.graphs.graph_engine import build_transaction_graph, compute_graph_signals
     from src.config import PROCESSED_DATA_DIR
-    import pandas as pd, json
     df = pd.read_csv(PROCESSED_DATA_DIR / "features_with_ml.csv", parse_dates=["timestamp"])
     G = build_transaction_graph(df)
     suspicious = set(df.loc[df["anomaly_flag"] == 1, "payer_id"].unique())
@@ -283,27 +397,41 @@ def _step_graph():
     df_out.to_csv(PROCESSED_DATA_DIR / "features_with_graph.csv", index=False)
 
 
+def _step_lightgbm():
+    from src.models.supervised_detector import run_dual_model_comparison
+    from src.config import PROCESSED_DATA_DIR
+    df = pd.read_csv(PROCESSED_DATA_DIR / "features_with_graph.csv", parse_dates=["timestamp"])
+    run_dual_model_comparison(df)
+
+
+def _step_feature_importance():
+    from src.models.feature_importance import save_feature_importances
+    from src.config import PROCESSED_DATA_DIR
+    df = pd.read_csv(PROCESSED_DATA_DIR / "features_with_graph.csv", parse_dates=["timestamp"])
+    save_feature_importances(df)
+
+
 def _step_agents():
     from src.agents.detector import build_all_cases, case_summary
     from src.agents.critic import apply_critic_to_all
     from src.agents.explainer import explain_all
     from src.config import PROCESSED_DATA_DIR
-    import pandas as pd, json
+    import json as _json
     df = pd.read_csv(PROCESSED_DATA_DIR / "features_with_graph.csv", parse_dates=["timestamp"])
     cases = build_all_cases(df)
     cases_dicts = [vars(c) if hasattr(c, '__dict__') else {} for c in cases]
     with open(PROCESSED_DATA_DIR / "cases.json", "w") as f:
-        json.dump(cases_dicts, f, indent=2, default=str)
+        _json.dump(cases_dicts, f, indent=2, default=str)
     summary = case_summary(cases)
     summary.to_csv(PROCESSED_DATA_DIR / "cases_summary.csv", index=False)
     cases = apply_critic_to_all(cases)
     cases_dicts = [vars(c) if hasattr(c, '__dict__') else {} for c in cases]
     with open(PROCESSED_DATA_DIR / "cases_with_critic.json", "w") as f:
-        json.dump(cases_dicts, f, indent=2, default=str)
+        _json.dump(cases_dicts, f, indent=2, default=str)
     explanations = explain_all(cases)
     exp_dicts = [{"transaction_id": e.transaction_id, "risk_level": e.risk_level, "confidence": e.confidence, "headline": e.headline, "what_happened": e.what_happened, "why_suspicious": e.why_suspicious, "supporting_evidence": e.supporting_evidence, "graph_context": e.graph_context, "critic_note": e.critic_note, "recommended_action": e.recommended_action} for e in explanations]
     with open(PROCESSED_DATA_DIR / "explanations.json", "w") as f:
-        json.dump(exp_dicts, f, indent=2)
+        _json.dump(exp_dicts, f, indent=2)
 
 
 @st.cache_data(ttl=60)
@@ -410,10 +538,11 @@ st.sidebar.divider()
 # System status
 try:
     df_check = pd.read_csv(DATA_DIR / "features_with_graph.csv", nrows=5)
+    total_rows = len(df_check)
     st.sidebar.success("System online")
-    st.sidebar.caption(f"Dataset: {len(pd.read_csv(DATA_DIR / 'features_with_graph.csv')):,} transactions")
+    st.sidebar.caption(f"Dataset: {total_rows:,} transactions loaded")
 except Exception:
-    st.sidebar.error("Data not found. Run pipeline first.")
+    st.sidebar.warning("Data not yet generated. App will auto-generate on first load.")
 
 st.sidebar.divider()
 st.sidebar.caption("Razorpay AI Buildathon 2026")
