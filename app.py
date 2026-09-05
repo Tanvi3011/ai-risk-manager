@@ -180,29 +180,123 @@ st.markdown("""
 # ─── Data Loading ──────────────────────────────────────────────────────
 
 def _run_full_pipeline():
-    """Generate all data if missing."""
-    import subprocess
-    # Set PYTHONPATH so pipeline scripts find src/ config
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(PROJECT_ROOT)
-    scripts = [
-        "python src/data_generation/generate_transactions.py",
-        "python src/features/feature_engineering.py",
-        "python src/features/rules.py",
-        "python src/models/anomaly_detector.py",
-        "python src/models/supervised_detector.py",
-        "python src/models/feature_importance.py",
-        "python src/graphs/graph_engine.py",
-        "python src/agents/detector.py",
-        "python src/agents/critic.py",
-        "python src/agents/explainer.py",
+    """Generate all data if missing — runs in-process."""
+    from src.config import DATA_DIR, RAW_DATA_DIR
+
+    steps = [
+        ("Generating transactions", lambda: _step_generate()),
+        ("Building features", lambda: _step_features()),
+        ("Applying rules", lambda: _step_rules()),
+        ("Training Isolation Forest", lambda: _step_isolation_forest()),
+        ("Training LightGBM", lambda: _step_lightgbm()),
+        ("Feature importance", lambda: _step_feature_importance()),
+        ("Building graph", lambda: _step_graph()),
+        ("Running agents", lambda: _step_agents()),
     ]
-    for cmd in scripts:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=str(PROJECT_ROOT), env=env)
-        if result.returncode != 0:
-            st.warning(f"Step failed: {cmd}")
-            if result.stderr:
-                st.code(result.stderr[:200])
+
+    progress = st.progress(0, text="Starting pipeline...")
+    for i, (label, fn) in enumerate(steps):
+        progress.progress(i / len(steps), text=f"{label}...")
+        try:
+            fn()
+        except Exception as e:
+            progress.progress((i + 1) / len(steps), text=f"{label} failed: {e}")
+    progress.progress(1.0, text="Pipeline complete!")
+
+
+def _step_generate():
+    from src.config import RAW_DATA_DIR
+    RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    exec(open(PROJECT_ROOT / "src" / "data_generation" / "generate_transactions.py", encoding="utf-8").read())
+
+
+def _step_features():
+    from src.features.feature_engineering import build_feature_matrix
+    from src.config import RAW_DATA_DIR, PROCESSED_DATA_DIR
+    import pandas as pd
+    df = pd.read_csv(RAW_DATA_DIR / "transactions.csv", parse_dates=["timestamp"])
+    features = build_feature_matrix(df)
+    PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    features.to_csv(PROCESSED_DATA_DIR / "features.csv", index=False)
+
+
+def _step_rules():
+    from src.features.rules import apply_rules
+    from src.config import PROCESSED_DATA_DIR
+    import pandas as pd
+    df = pd.read_csv(PROCESSED_DATA_DIR / "features.csv", parse_dates=["timestamp"])
+    df_rules = apply_rules(df)
+    df_rules.to_csv(PROCESSED_DATA_DIR / "features_with_rules.csv", index=False)
+
+
+def _step_isolation_forest():
+    from src.models.anomaly_detector import train_isolation_forest, predict_anomaly
+    from src.features.feature_engineering import get_feature_columns
+    from src.config import PROCESSED_DATA_DIR
+    import pandas as pd, numpy as np
+    from sklearn.preprocessing import StandardScaler
+    df = pd.read_csv(PROCESSED_DATA_DIR / "features_with_rules.csv", parse_dates=["timestamp"])
+    feature_cols = [c for c in get_feature_columns(df) if not c.startswith("rule_")]
+    ml_features = [c for c in feature_cols if df[c].dtype in ['float64','int64','bool','float32','int32']]
+    X = df[ml_features].fillna(0)
+    contamination = df["is_fraud"].mean()
+    model, scaler = train_isolation_forest(X, contamination=contamination)
+    results = predict_anomaly(model, scaler, X, ml_features)
+    df["anomaly_score"] = results["anomaly_score"].values
+    df["anomaly_flag"] = results["anomaly_flag"].values
+    df["ml_top_features"] = results["top_features"].values
+    df.to_csv(PROCESSED_DATA_DIR / "features_with_ml.csv", index=False)
+
+
+def _step_lightgbm():
+    from src.models.supervised_detector import run_dual_model_comparison
+    from src.config import DATA_DIR
+    import pandas as pd
+    df = pd.read_csv(DATA_DIR / "processed" / "features_with_graph.csv", parse_dates=["timestamp"])
+    run_dual_model_comparison(df)
+
+
+def _step_feature_importance():
+    from src.models.feature_importance import save_feature_importances
+    from src.config import DATA_DIR
+    import pandas as pd
+    df = pd.read_csv(DATA_DIR / "processed" / "features_with_graph.csv", parse_dates=["timestamp"])
+    save_feature_importances(df)
+
+
+def _step_graph():
+    from src.graphs.graph_engine import build_transaction_graph, compute_graph_signals, detect_fraud_rings
+    from src.config import PROCESSED_DATA_DIR
+    import pandas as pd, json
+    df = pd.read_csv(PROCESSED_DATA_DIR / "features_with_ml.csv", parse_dates=["timestamp"])
+    G = build_transaction_graph(df)
+    suspicious = set(df.loc[df["anomaly_flag"] == 1, "payer_id"].unique())
+    graph_signals = compute_graph_signals(G, df, suspicious_accounts=suspicious)
+    df_out = df.merge(graph_signals, on="transaction_id", how="left")
+    df_out.to_csv(PROCESSED_DATA_DIR / "features_with_graph.csv", index=False)
+
+
+def _step_agents():
+    from src.agents.detector import build_all_cases, case_summary
+    from src.agents.critic import apply_critic_to_all
+    from src.agents.explainer import explain_all
+    from src.config import PROCESSED_DATA_DIR
+    import pandas as pd, json
+    df = pd.read_csv(PROCESSED_DATA_DIR / "features_with_graph.csv", parse_dates=["timestamp"])
+    cases = build_all_cases(df)
+    cases_dicts = [vars(c) if hasattr(c, '__dict__') else {} for c in cases]
+    with open(PROCESSED_DATA_DIR / "cases.json", "w") as f:
+        json.dump(cases_dicts, f, indent=2, default=str)
+    summary = case_summary(cases)
+    summary.to_csv(PROCESSED_DATA_DIR / "cases_summary.csv", index=False)
+    cases = apply_critic_to_all(cases)
+    cases_dicts = [vars(c) if hasattr(c, '__dict__') else {} for c in cases]
+    with open(PROCESSED_DATA_DIR / "cases_with_critic.json", "w") as f:
+        json.dump(cases_dicts, f, indent=2, default=str)
+    explanations = explain_all(cases)
+    exp_dicts = [{"transaction_id": e.transaction_id, "risk_level": e.risk_level, "confidence": e.confidence, "headline": e.headline, "what_happened": e.what_happened, "why_suspicious": e.why_suspicious, "supporting_evidence": e.supporting_evidence, "graph_context": e.graph_context, "critic_note": e.critic_note, "recommended_action": e.recommended_action} for e in explanations]
+    with open(PROCESSED_DATA_DIR / "explanations.json", "w") as f:
+        json.dump(exp_dicts, f, indent=2)
 
 
 @st.cache_data(ttl=60)
