@@ -1,0 +1,37 @@
+# Virtual environment
+.venv/
+venv/
+
+# Environment variables / secrets
+.env
+.env.local
+.env.production
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated datasets (regenerate with pipeline scripts)
+data/raw/
+data/processed/
+
+# Logs
+*.log
+
+# Test/cache
+.pytest_cache/
+.coverage
+
+# Build artifacts
+AI_Risk_Manager.zip
+*.egg-info/
+dist/
+build/
