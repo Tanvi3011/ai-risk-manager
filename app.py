@@ -176,12 +176,35 @@ st.markdown("""
 
 # ─── Data Loading ──────────────────────────────────────────────────────
 
+def _run_full_pipeline():
+    """Generate all data if missing."""
+    import subprocess
+    scripts = [
+        "python src/data_generation/generate_transactions.py",
+        "python src/features/feature_engineering.py",
+        "python src/features/rules.py",
+        "python src/models/anomaly_detector.py",
+        "python src/models/supervised_detector.py",
+        "python src/models/feature_importance.py",
+        "python src/graphs/graph_engine.py",
+        "python src/agents/detector.py",
+        "python src/agents/critic.py",
+        "python src/agents/explainer.py",
+    ]
+    for cmd in scripts:
+        subprocess.run(cmd, shell=True, capture_output=True, cwd=str(PROJECT_ROOT))
+
+
 @st.cache_data(ttl=60)
 def load_all() -> tuple[pd.DataFrame, dict]:
-    """Load features, cases, and explanations."""
+    """Load features, cases, and explanations. Auto-generate if missing."""
     graph_path = DATA_DIR / "features_with_graph.csv"
     cases_path = DATA_DIR / "cases.json"
     explanations_path = DATA_DIR / "explanations.json"
+
+    if not graph_path.exists() or not cases_path.exists() or not explanations_path.exists():
+        with st.spinner("Generating dataset for the first time (this takes ~2 minutes)..."):
+            _run_full_pipeline()
 
     df = pd.read_csv(graph_path, parse_dates=["timestamp"])
 
